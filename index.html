@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamTrack | Real-Time Ride Monitoring</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo"></div>
+                <h1>StreamTrack</h1>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="label">Active Drivers</span>
+                    <span class="value" id="count-drivers">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">System Status</span>
+                    <span class="value status-ok">Live</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Live Alerts</h3>
+                <div id="alerts-list" class="alerts-container">
+                    <div class="empty-msg">No active alerts</div>
+                </div>
+            </div>
+
+            <div class="panel drivers-panel">
+                <h3>Driver Details</h3>
+                <div id="drivers-list" class="drivers-container">
+                    <!-- Dynamic driver cards -->
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="btn-toggle" class="btn-primary">Start Simulation</button>
+                <button id="btn-reset" class="btn-secondary">Reset View</button>
+            </div>
+        </aside>
+
+        <!-- Main Map Area -->
+        <main class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-overlay">
+                <div class="location-badge">
+                    <span class="dot"></span> Mumbai Central
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
