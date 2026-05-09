@@ -60,6 +60,7 @@ class DriverSimulator(threading.Thread):
         self.lat = RIDER_LOCATION["lat"] + random.uniform(-0.02, 0.02)
         self.lon = RIDER_LOCATION["lon"] + random.uniform(-0.02, 0.02)
         self.running = True
+        self.battery = 100
 
     def run(self):
         while self.running:
@@ -70,12 +71,16 @@ class DriverSimulator(threading.Thread):
                     self.lon += random.uniform(-0.002, 0.002)
                 
                 speed = random.uniform(20, 100)
+                self.battery -= random.uniform(0.1, 1.0)
+                if self.battery < 0: self.battery = 100 # Reset for simulation
+
                 event = {
                     "event_id": str(uuid.uuid4()),
                     "driver_id": self.driver_id,
                     "latitude": round(self.lat, 6),
                     "longitude": round(self.lon, 6),
                     "speed": round(speed, 2),
+                    "battery": round(self.battery, 1),
                     "timestamp": datetime.now().isoformat()
                 }
                 self.broker.publish(event)
@@ -111,21 +116,33 @@ class StreamProcessor(threading.Thread):
 
             # Alerts
             alerts = []
-            if event['speed'] > 80: alerts.append("Over-speeding!")
+            if event['speed'] > 85: alerts.append("Over-speeding!")
+            if event.get('battery', 100) < 20: alerts.append("Low Battery!")
             
-            prev_loc = state['drivers'].get(d_id, {}).get('location')
+            prev_data = state['drivers'].get(d_id, {})
+            prev_speed = prev_data.get('speed', 0)
+            if prev_speed - event['speed'] > 40: alerts.append("Sudden Braking!")
+
+            prev_dist = prev_data.get('distance', 0)
+            if dist > prev_dist + 0.5 and dist > 5: alerts.append("Off Route detected!")
+
+            prev_loc = prev_data.get('location')
             curr_loc = [event['latitude'], event['longitude']]
             if prev_loc == curr_loc:
                 self.stop_counters[d_id] = self.stop_counters.get(d_id, 0) + 1
             else:
                 self.stop_counters[d_id] = 0
             
-            if self.stop_counters.get(d_id, 0) >= 3: alerts.append("Driver Stopped")
+            if self.stop_counters.get(d_id, 0) >= 10:
+                alerts.append("Long Idle Time!")
+            elif self.stop_counters.get(d_id, 0) >= 3: 
+                alerts.append("Driver Stopped")
 
             # Update Global State
             state['drivers'][d_id] = {
                 "location": curr_loc,
                 "speed": event['speed'],
+                "battery": event.get('battery', 100),
                 "avg_speed": round(avg_speed, 1),
                 "eta": round(eta, 1),
                 "distance": round(dist, 2),
@@ -133,9 +150,11 @@ class StreamProcessor(threading.Thread):
             }
             
             if alerts:
-                alert_msg = {"driver_id": d_id, "msg": ", ".join(alerts), "time": datetime.now().strftime("%H:%M:%S")}
-                state['alerts'].insert(0, alert_msg)
-                state['alerts'] = state['alerts'][:5] # Keep last 5
+                for a in alerts:
+                    alert_msg = {"driver_id": d_id, "msg": a, "time": datetime.now().strftime("%H:%M:%S")}
+                    state['alerts'].insert(0, alert_msg)
+                
+                state['alerts'] = state['alerts'][:10] # Keep last 10
 
             print(f"[Update] Driver {d_id} | ETA: {round(eta,1)}m | Speed: {event['speed']}km/h")
 

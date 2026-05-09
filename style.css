@@ -118,12 +118,27 @@ body {
 
 /* Alert Item */
 .alert-item {
-    background: rgba(255, 62, 62, 0.1);
-    border-left: 3px solid var(--danger);
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--text-dim);
     padding: 10px;
     border-radius: 4px;
     margin-bottom: 8px;
     animation: slideIn 0.3s ease;
+}
+
+.alert-item.danger {
+    background: rgba(255, 62, 62, 0.1);
+    border-left-color: var(--danger);
+}
+
+.alert-item.warning {
+    background: rgba(255, 184, 0, 0.1);
+    border-left-color: var(--warning);
+}
+
+.alert-item.info {
+    background: rgba(0, 242, 255, 0.1);
+    border-left-color: var(--accent-cyan);
 }
 
 .alert-item .time { font-size: 10px; color: var(--text-dim); }

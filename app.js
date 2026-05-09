@@ -44,56 +44,67 @@ async function fetchData() {
 }
 
 function updateUI(data) {
+    if (!data) return;
     const { drivers, alerts } = data;
     
     // Update Stats
-    document.getElementById('count-drivers').innerText = Object.keys(drivers).length;
+    document.getElementById('count-drivers').innerText = Object.keys(drivers || {}).length;
 
     // Update Drivers List & Markers
     const driversList = document.getElementById('drivers-list');
-    driversList.innerHTML = '';
+    if (driversList) {
+        driversList.innerHTML = '';
 
-    const carIcon = L.icon({
-        iconUrl: 'car.png',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-    });
+        const carIcon = L.icon({
+            iconUrl: 'car.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
 
-    for (const [id, info] of Object.entries(drivers)) {
-        // 1. Update/Create Marker
-        if (!markers[id]) {
-            markers[id] = L.marker(info.location, { icon: carIcon }).addTo(map);
-            markers[id].bindTooltip(`Driver ${id}`, { permanent: false });
-        } else {
-            // Smooth move
-            animateMarker(markers[id], info.location);
+        for (const [id, info] of Object.entries(drivers || {})) {
+            // Validate driver data
+            if (!info || typeof info !== 'object' || !info.location) continue;
+
+            // 1. Update/Create Marker
+            if (!markers[id]) {
+                markers[id] = L.marker(info.location, { icon: carIcon }).addTo(map);
+                markers[id].bindTooltip(`Driver ${id}`, { permanent: false });
+            } else {
+                animateMarker(markers[id], info.location);
+            }
+
+            // 2. Add Card to List
+            const card = document.createElement('div');
+            card.className = 'driver-card';
+            card.innerHTML = `
+                <div class="driver-header">
+                    <span class="driver-id">${id}</span>
+                    <span class="driver-status">${info.status || 'Moving'}</span>
+                </div>
+                <div class="driver-metrics">
+                    <div><span class="metric-label">Speed:</span> ${info.speed ?? 0} km/h</div>
+                    <div><span class="metric-label">Battery:</span> ${info.battery ?? 100}%</div>
+                    <div><span class="metric-label">ETA:</span> ${info.eta ?? '--'} min</div>
+                    <div><span class="metric-label">Avg:</span> ${info.avg_speed ?? 0} km/h</div>
+                    <div><span class="metric-label">Dist:</span> ${info.distance ?? 0} km</div>
+                </div>
+            `;
+            driversList.appendChild(card);
         }
-
-        // 2. Add Card to List
-        const card = document.createElement('div');
-        card.className = 'driver-card';
-        card.innerHTML = `
-            <div class="driver-header">
-                <span class="driver-id">${id}</span>
-                <span class="driver-status">${info.status}</span>
-            </div>
-            <div class="driver-metrics">
-                <div><span class="metric-label">Speed:</span> ${info.speed} km/h</div>
-                <div><span class="metric-label">ETA:</span> ${info.eta} min</div>
-                <div><span class="metric-label">Avg:</span> ${info.avg_speed} km/h</div>
-                <div><span class="metric-label">Dist:</span> ${info.distance} km</div>
-            </div>
-        `;
-        driversList.appendChild(card);
     }
 
     // Update Alerts
     const alertsList = document.getElementById('alerts-list');
-    if (alerts.length > 0) {
+    if (alertsList && alerts) {
         alertsList.innerHTML = '';
         alerts.forEach(a => {
             const item = document.createElement('div');
-            item.className = 'alert-item';
+            let alertClass = '';
+            if (a.msg.includes('Over-speeding') || a.msg.includes('Idle') || a.msg.includes('Off Route')) alertClass = 'danger';
+            else if (a.msg.includes('Battery') || a.msg.includes('Braking')) alertClass = 'warning';
+            else if (a.msg.includes('Stopped')) alertClass = 'info';
+
+            item.className = `alert-item ${alertClass}`;
             item.innerHTML = `
                 <span class="time">${a.time}</span>
                 <span class="msg">Driver ${a.driver_id}: ${a.msg}</span>
