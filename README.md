@@ -52,13 +52,90 @@ By using a localized "Message Broker" and a multi-threaded processing engine, th
 
 ## 🏗️ System Architecture
 
-The data flows through the system in the following stages:
+The following diagram illustrates the high-level system design of the Ride Tracking System, moving from real-time data ingestion to stream processing and visualization.
 
-1. **Event Producers (Drivers)**: Simulate movement and push GPS data (Lat, Lon, Speed) into the broker.
-2. **Message Broker (Queue)**: Buffers incoming events to handle spikes and decouple components.
-3. **Stream Processor**: Consumes events, validates them, calculates ETAs, and runs windowed analytics.
-4. **Data Server**: Serves the current "state" of the system via a REST API.
-5. **Frontend Dashboard**: Polls the API and renders moving cars on a live map.
+```mermaid
+graph TD
+    subgraph "1. Event Producers"
+        DA["Driver Mobile App<br/>(GPS Updates every 2-5 sec)"]
+    end
+
+    subgraph "2. API Gateway"
+        AGW["API Gateway"]
+        AGW --> Auth["Auth & Rate Limiting"]
+        AGW --> REST["REST API"]
+        AGW --> WS_API["WebSocket API"]
+    end
+
+    subgraph "3. Message Broker (Kafka)"
+        KC["Apache Kafka Cluster"]
+        KC --> T1["Topic: driver-location"]
+        KC --> T2["Topic: ride-events"]
+        HTS["High Throughput Streaming"]
+    end
+
+    subgraph "4. Stream Processing Layer"
+        SP["Apache Flink / Kafka Streams"]
+        SP --> Val["Event Validation"]
+        SP --> Trans["Data Transformation"]
+        SP --> ETA["ETA & Distance Calculation"]
+        SP --> Win["Sliding Window (5 min)"]
+    end
+
+    subgraph "5. Storage Layer"
+        Redis["(Redis/Latest Location)"]
+        Cass["(Cassandra/Ride History)"]
+        ES["(Elasticsearch/Analytics)"]
+    end
+
+    subgraph "6. Real-Time Output"
+        AE["Alert Engine"] --> Push["Push / SMS / In-App Alerts"]
+        WSS["WebSocket Server"]
+    end
+
+    subgraph "7. Dashboard & Monitoring"
+        Dash["Admin Dashboard"]
+        Mon["Grafana / Kibana"]
+        Dash --> Mon
+    end
+
+    DA --> AGW
+    AGW --> KC
+    KC --> SP
+    SP --> Redis
+    SP --> Cass
+    SP --> ES
+    SP --> AE
+    SP --> WSS
+    Redis --> Dash
+    WSS --> Rider["Rider Mobile App"]
+    AE --> Rider
+
+    subgraph "8. Infrastructure & Fault Tolerance"
+        K8s["Kubernetes Cluster"]
+        Doc["Docker Containers"]
+        AS["Auto Scaling"]
+        Rep["Kafka Replication"]
+        Chk["Flink Checkpointing"]
+        DLQ["Dead Letter Queue"]
+    end
+```
+
+### **Architecture Breakdown**
+
+1.  **Event Producers**: Drivers use a mobile application that emits GPS telemetry (Latitude, Longitude, Speed) every 2-5 seconds.
+2.  **API Gateway**: Acts as the entry point, handling Authentication, Rate Limiting, and routing requests via REST or WebSocket APIs.
+3.  **Message Broker (Kafka)**: A high-throughput streaming platform that buffers events in topics (`driver-location`, `ride-events`) for decoupled processing.
+4.  **Stream Processing Layer**: Uses Apache Flink or Kafka Streams to perform real-time validation, transformation, and complex event processing (CEP) like ETA calculations and 5-minute sliding window analytics.
+5.  **Storage Layer**: 
+    *   **Redis**: In-memory store for fast retrieval of the latest driver locations.
+    *   **Cassandra**: Distributed database for long-term ride history and persistence.
+    *   **Elasticsearch**: Powering real-time analytics and search capabilities.
+6.  **Real-Time Output**: 
+    *   **Alert Engine**: Triggers instant notifications (Push/SMS) for over-speeding or off-route events.
+    *   **WebSocket Server**: Pushes live updates directly to the Rider and Admin applications.
+7.  **Dashboard & Monitoring**: Admin portals for real-time visualization, alongside Grafana and Kibana for infrastructure monitoring and logs.
+8.  **Infrastructure**: The system is containerized with **Docker** and orchestrated using **Kubernetes**, ensuring fault tolerance with Kafka replication and Flink checkpointing.
 
 ---
 
